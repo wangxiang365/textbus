@@ -99,6 +99,7 @@ export class TBRange {
     }
     const start = this.findFocusNodeAndOffset(this.startFragment, this.startIndex);
     const end = this.findFocusNodeAndOffset(this.endFragment, this.endIndex);
+    console.log(start, end)
     if (start && end) {
       this.nativeRange.setStart(start.node, start.offset);
       this.nativeRange.setEnd(end.node, end.offset);
@@ -588,7 +589,7 @@ export class TBRange {
         }
         return {
           fragment: parentFragment,
-          index: prevContent instanceof LeafAbstractComponent ? componentIndex - 1 : componentIndex
+          index: componentIndex
         }
       } else {
         fragment = parentFragment;
@@ -869,30 +870,18 @@ export class TBRange {
    */
   getRangePosition() {
     const range: Range = this.nativeRange;
-    let rect = range.getBoundingClientRect();
+    let rect: DOMRect;
     const {startContainer, startOffset} = range;
-    const offsetNode = startContainer.childNodes[startOffset];
     if (startContainer.nodeType === Node.ELEMENT_NODE) {
-      if (offsetNode) {
-        const p = this.renderer.getPositionByNode(offsetNode);
-        if (p.endIndex - p.startIndex === 1 && p.fragment.getContentAtIndex(p.startIndex) instanceof LeafAbstractComponent) {
-          rect = (offsetNode as HTMLElement).getBoundingClientRect();
-        } else if (offsetNode.nodeType === Node.ELEMENT_NODE && offsetNode.childNodes.length === 0) {
-          const cloneRange = range.cloneRange();
-          const textNode = offsetNode.ownerDocument.createTextNode('\u200b');
-          offsetNode.appendChild(textNode);
-          cloneRange.selectNodeContents(offsetNode);
-          rect = cloneRange.getBoundingClientRect();
-          cloneRange.detach();
-        }
-      } else {
-        const span = startContainer.ownerDocument.createElement('span');
-        span.innerText = 'x';
-        span.style.display = 'inline-block';
-        startContainer.appendChild(span);
-        rect = span.getBoundingClientRect();
-        startContainer.removeChild(span);
-      }
+      const offsetNode = startContainer.childNodes[startOffset];
+      const span = startContainer.ownerDocument.createElement('span');
+      span.innerText = '\u200b';
+      span.style.display = 'inline-block';
+      startContainer.insertBefore(span, offsetNode);
+      rect = span.getBoundingClientRect();
+      startContainer.removeChild(span);
+    } else {
+      rect = range.getBoundingClientRect()
     }
     return rect;
   }

@@ -221,6 +221,7 @@ export class Input {
       return;
     }
     const rect = this.selection.firstRange.getRangePosition();
+    console.log(startContainer, rect, node, this.selection.firstRange.nativeRange.cloneRange().getBoundingClientRect())
     const {fontSize, lineHeight, color} = getComputedStyle(node);
 
     if (isWindows) {
