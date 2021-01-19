@@ -97,7 +97,9 @@ export class TBRange {
       console.info('渲染延迟！');
       return this;
     }
+    console.log('restore')
     const start = this.findFocusNodeAndOffset(this.startFragment, this.startIndex);
+
     const end = this.findFocusNodeAndOffset(this.endFragment, this.endIndex);
     console.log(start, end)
     if (start && end) {
@@ -384,8 +386,27 @@ export class TBRange {
       return paths;
     }
 
+    const endFragmentIsCommon = this.endFragment === this.commonAncestorFragment;
+    const selectedScopes = this.getSelectedScope();
+    if (this.startFragment === this.commonAncestorFragment &&
+      selectedScopes.length === 0 &&
+      this.startIndex > 0) {
+      /**
+       * <Inline>[
+       * <Block>]xxxx</Block>
+       */
+      const prevContent = this.startFragment.getContentAtIndex(this.startIndex - 1);
+
+      if (prevContent instanceof LeafAbstractComponent) {
+        this.startIndex--;
+        this.deleteSelectedScope(this.getSelectedScope());
+        this.collapse(true);
+        return;
+      }
+    }
     const paths = recordPath();
-    this.deleteSelectedScope();
+
+    this.deleteSelectedScope(selectedScopes);
 
     const findPath = () => {
       while (true) {
@@ -448,7 +469,7 @@ export class TBRange {
       this.setStart(position.fragment, position.index);
     }
 
-    if (endFragmentInDoc && this.endFragment !== this.startFragment) {
+    if (endFragmentInDoc && this.endFragment !== this.startFragment && !endFragmentIsCommon) {
       // 防止结尾有 br
       this.startFragment.remove(this.startIndex);
       this.startFragment.contact(this.endFragment);
@@ -589,7 +610,7 @@ export class TBRange {
         }
         return {
           fragment: parentFragment,
-          index: componentIndex
+          index: prevContent instanceof LeafAbstractComponent ? componentIndex - 1 : componentIndex
         }
       } else {
         fragment = parentFragment;
@@ -874,6 +895,10 @@ export class TBRange {
     const {startContainer, startOffset} = range;
     if (startContainer.nodeType === Node.ELEMENT_NODE) {
       const offsetNode = startContainer.childNodes[startOffset];
+      const p = this.renderer.getPositionByNode(offsetNode);
+      if (p.endIndex - p.startIndex === 1 && p.fragment.getContentAtIndex(p.startIndex) instanceof LeafAbstractComponent) {
+        return (offsetNode as HTMLElement).getBoundingClientRect();
+      }
       const span = startContainer.ownerDocument.createElement('span');
       span.innerText = '\u200b';
       span.style.display = 'inline-block';
@@ -889,8 +914,8 @@ export class TBRange {
   /**
    * 删除选区范围内的内容。
    */
-  private deleteSelectedScope() {
-    this.getSelectedScope().reverse().forEach(scope => {
+  private deleteSelectedScope(scopes: TBRangeScope[]) {
+    scopes.reverse().forEach(scope => {
       if (scope.startIndex === 0 && scope.endIndex === scope.fragment.contentLength) {
         const parentComponent = scope.fragment.parentComponent;
         scope.fragment.remove(0);
